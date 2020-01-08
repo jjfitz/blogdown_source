@@ -17,7 +17,7 @@ languageCode = "en-us"
 defaultContentLanguage = "en-us"
 title = "Jason Fitzgerald"
 theme = "hugo-tranquilpeak-theme"
-disqusShortname = "hugo-tranquilpeak-theme"
+disqusShortname = "jasonfitz"
 # googleAnalytics = "UA-123-45"
 paginate = 7
 canonifyurls = true
@@ -77,14 +77,14 @@ canonifyurls = true
   pre = "<i class=\"sidebar-button-icon fa fa-lg fa-question\"></i>"
   url = "/#about"
 
-[[menu.links]]
-  weight = 1
+[[menu.main]]
+  weight = 6
   identifier = "github"
   name = "GitHub"
   pre = "<i class=\"sidebar-button-icon fa fa-lg fa-github\"></i>"
   url = "https://github.com/jjfitz"
 #[[menu.links]]
-#  weight = 2
+#  weight = 1
 #  identifier = "stackoverflow"
 #  name = "Stack Overflow"
 #  pre = "<i class=\"sidebar-button-icon fa fa-lg fa-stack-overflow\"></i>"

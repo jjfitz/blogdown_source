@@ -24,6 +24,15 @@
     </item>
     
     <item>
+      <title>How Far Does the Apple Fall From the Tree?</title>
+      <link>/2019/09/how-far-does-the-apple-fall/</link>
+      <pubDate>Thu, 26 Sep 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/2019/09/how-far-does-the-apple-fall/</guid>
+      <description>Introduction During the 4th of July I started to have this question: which of my ancestors served in the Revolutionary War? I began my search for records of proof of service on FamilySearch and Ancestry. As I was clicking up and down my family tree, I wondered if there was a way to read the family history (GEDCOM) files in R. After an in-depth search, I couldn’t find anyone with a good GEDCOM parser that would turn it into CSV format in R (however, a similar project was recently begun; https://www.</description>
+    </item>
+    
+    <item>
       <title>Hello R Markdown</title>
       <link>/2015/07/hello-r-markdown/</link>
       <pubDate>Thu, 23 Jul 2015 21:13:14 -0500</pubDate>

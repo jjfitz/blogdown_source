@@ -1,0 +1,101 @@
+---
+title: "How Far Does the Apple Fall From the Tree?"
+author: ~
+date: "2019-09-26"
+slug: how-far-does-the-apple-fall
+categories: []
+tags: []
+keywords:
+  - gedcom
+output: 
+  html_document:
+    code_folding: hide
+---
+
+<script src="/rmarkdown-libs/htmlwidgets/htmlwidgets.js"></script>
+<script src="/rmarkdown-libs/jquery/jquery.min.js"></script>
+<link href="/rmarkdown-libs/leaflet/leaflet.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/leaflet/leaflet.js"></script>
+<link href="/rmarkdown-libs/leafletfix/leafletfix.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/Proj4Leaflet/proj4-compressed.js"></script>
+<script src="/rmarkdown-libs/Proj4Leaflet/proj4leaflet.js"></script>
+<link href="/rmarkdown-libs/rstudio_leaflet/rstudio_leaflet.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/leaflet-binding/leaflet.js"></script>
+
+
+<div id="introduction" class="section level3">
+<h3>Introduction</h3>
+<p>During the 4th of July I started to have this question: which of my ancestors served in the Revolutionary War? I began my search for records of proof of service on FamilySearch and Ancestry. As I was clicking up and down my family tree, I wondered if there was a way to read the family history (GEDCOM) files in R. After an in-depth search, I couldn’t find anyone with a good GEDCOM parser that would turn it into CSV format in R (however, a similar project was recently begun; <a href="https://www.r-bloggers.com/gedcom-reader-for-the-r-language-analysing-family-history/" class="uri">https://www.r-bloggers.com/gedcom-reader-for-the-r-language-analysing-family-history/</a>). So, I decided that I would take a crack at it and start exploring my family’s data.</p>
+<p>I decided to go with the family tree off of my FamilySearch account mainly because a lot of the searching has been done for you, and their files come with latitudes and longitudes. One thing to keep in mind, the farther back you go in your tree, the information may not be correct. Luckily, someone already built a way to get your GEDCOM file from FamilySearch. It does require python3. You can go to their site to learn more:</p>
+<p><a href="https://github.com/Linekio/getmyancestors" class="uri">https://github.com/Linekio/getmyancestors</a></p>
+<p>You can also get a GEDCOM file off of Ancestry by following these instructions:</p>
+<p><a href="https://support.ancestry.com/s/article/Uploading-and-Downloading-Trees" class="uri">https://support.ancestry.com/s/article/Uploading-and-Downloading-Trees</a></p>
+<p>Feel free to use my read_gedcom function from here:</p>
+<pre class="r"><code># install.packages(&quot;devtools&quot;)
+devtools::install_github(&quot;jjfitz/readgedcom&quot;)</code></pre>
+<p>It is still in the developmental stages, but in its current format, it is able to grab useful information such as names, birth/death dates, birth/death places, what family they come from, and what children they had. It does not gather everything that a GEDCOM file stores, but I will be working on it gathering more information shortly.</p>
+<p>As mentioned earlier, I will demonstrate this idea using my own line, albeit with changes to locations and other identifiable information. The following graphic is a density plot showing the ages of my direct ancestors.</p>
+<pre class="r"><code># Density
+gd %&gt;%
+  filter(age &lt; 120 &amp; age &gt; 0) %&gt;%
+  ggplot(aes(age, color = sex)) +
+  geom_density()</code></pre>
+<p><img src="/post/Genealogy_files/figure-html/unnamed-chunk-2-1.png" width="672" /></p>
+<p>In this dataset, I went back 10 generations. It was able to provide 656 males and 630 females.</p>
+<p>Next, I built out a pedigree chart.</p>
+<pre class="r"><code>gd$FAMS[1] &lt;- gd$FAMC[1]
+fam_graph &lt;- gd %&gt;%
+  mutate(FAMS = if_else(FAMS == &quot;&quot;, FAMC, FAMS)) %&gt;%
+  filter(FAMC != &quot;&quot;, generation &lt; 5) %&gt;%
+  select(FAMS, FAMC, anc_title) %&gt;%
+  graph_from_data_frame()
+
+g_name &lt;- gd %&gt;%
+  mutate(FAMS = if_else(FAMS == &quot;&quot;, FAMC, FAMS)) %&gt;%
+  filter(FAMC != &quot;&quot;, generation &lt; 5) %&gt;%
+  select(FAMS, FAMC, anc_title)
+
+g_name$V_verts &lt;- V(fam_graph)$name
+
+correct_name &lt;- g_name %&gt;%
+  left_join(gd, by = c(&quot;V_verts&quot; = &quot;FAMC&quot;))
+
+fam_graph &lt;- correct_name %&gt;%
+  mutate(FAMS.x = if_else(FAMS.x == &quot;&quot;, FAMC, FAMS.x)) %&gt;%
+  filter(FAMC != &quot;&quot;, generation &lt; 5) %&gt;%
+  select(FAMS.x, FAMC, anc_title.y) %&gt;%
+  graph_from_data_frame()
+
+V(fam_graph)$F_name &lt;- E(fam_graph)$anc_title.y
+
+ggraph(fam_graph, layout = &quot;dendrogram&quot;) +
+  geom_edge_link() +
+  geom_node_point() +
+  geom_node_text(aes(label = F_name), vjust = 1, hjust = 1, angle = 35) +
+  expand_limits(x = -.5, y = -.5)</code></pre>
+<p><img src="/post/Genealogy_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>I was also curious about my ancestors’ migratory path, so here is a map displaying that path, with me as generation 0.</p>
+<pre class="r"><code>gd %&lt;&gt;%
+  filter(generation &lt; 7)
+
+leaflet() %&gt;%
+  addTiles() %&gt;%
+  addCircles(lng = gd$birthlong, 
+             lat = gd$birthlat,
+             popup = paste0(&quot;Id: &quot;, gd$id, &quot;&lt;br /&gt;&quot;,
+                            &quot;Birth Place: &quot;, gd$birthplace, &quot;&lt;br /&gt;&quot;
+                            ),
+             color = gd$gencol) %&gt;%
+  addLegend(colors = levels(as_factor(gd$gencol)), labels = levels(as_factor(gd$generation)))</code></pre>
+<div id="htmlwidget-1" style="width:672px;height:480px;" class="leaflet html-widget"></div>
+<script type="application/json" data-for="htmlwidget-1">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"http://openstreetmap.org\">OpenStreetMap<\/a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA<\/a>"}]},{"method":"addCircles","args":[[39.9356016,42.2180724,32.6400541,28.6934076,30.2265949,34.1063989,42.4792618,46.8771863,33.0145673,38.891565,35.410694,41.5931049,30.421309,26.271192,43.661471,27.9094665,32.2217429,40.6916132,42.9614039,33.8816818,32.0835407,42.2917069,32.9483335,33.9616801,41.7014912,42.1211364,30.6332618,32.735687,43.2081366,46.6020711,37.0057816,38.7071247,33.2000368,33.0369867,32.8140177,29.3013479,39.8403147,33.6411316,28.5383355,42.2011538,33.5805955,39.7284944,33.6292337,41.8661403,42.5348993,34.1397292,38.789217,36.1539816,44.7677424,40.521893,37.4418834,43.2341813,42.9133602,43.5407172,37.0842271,33.7739053,42.5005583,39.5296329,27.9094665,33.7513419,41.7014912,39.9205411,33.9164032,42.3459271,40.9312099,42.0986867,41.0339862,29.5635666,32.9810059,39.0228485,29.1871986,34.1336186,42.0333607,41.2375569,35.7212689,33.4150485,46.8737648,39.9567548,41.0997803,26.3184123,42.1292241,32.8323225,28.5383355,41.2705484,35.2270869,26.271192,41.0534302,33.7205771,41.5933696,37.6688205,33.9462125,33.6356618,47.9789848,33.7458511,42.4792618,34.4208305,47.9789848,39.1836082,41.1339449,32.8140177,36.1988592,39.1434406,26.3017374,35.9556923,32.9342919,39.9242266,26.1947962,34.2163937,32.9029017,40.7607793,38.7071247,34.1083449,40.2968979,42.1250929,41.117744,33.7091847,45.0941315,39.843947,45.1732394,38.5890723,44.2619309,45.0105194,42.9633599,32.7667955,47.0378741,36.9613356,42.9764027],[-91.4098726,-70.9410356,-117.0841955,-81.5322149,-93.2173758,-117.5931084,-71.1522765,-96.7898034,-97.0969552,-121.2930079,-80.8428504,-81.5267873,-87.2169149,-80.2706044,-70.2553259,-82.7873244,-110.926479,-112.0010501,-88.0125865,-118.1170117,-81.0998342,-85.5872286,-96.7298519,-118.3531311,-71.1550451,-88.2578582,-97.6779842,-97.1080656,-71.5375718,-120.5058987,-121.5682751,-121.2810611,-117.2425355,-117.2919818,-96.9488945,-94.7976958,-88.9548001,-117.9186689,-81.3792365,-85.5800022,-112.2373779,-121.8374777,-112.3679279,-88.1070127,-92.4453161,-118.0353449,-90.322614,-95.992775,-93.2777226,-111.9391023,-122.1430195,-86.2483921,-85.7053085,-116.5634624,-94.513281,-117.9414477,-90.6645718,-119.8138027,-82.7873244,-117.9939921,-71.1550451,-105.0866504,-118.3525748,-71.5522874,-73.8987469,-75.9179738,-73.7629097,-95.2860474,-80.0325867,-94.7151865,-82.1400923,-117.9075627,-88.0834059,-80.8184166,-77.9155395,-111.5495777,-96.7678039,-86.01335,-80.6495194,-80.0997657,-80.085059,-79.8284258,-81.3792365,-72.9469711,-80.8431267,-80.2706044,-73.5387341,-116.2155619,-87.3464271,-122.0807964,-84.3346473,-96.6088805,-122.2020794,-117.826166,-71.1522765,-119.6981901,-122.2020794,-96.5716694,-81.4845585,-96.9488945,-115.1175013,-77.2013705,-98.1633432,-80.0053176,-97.0780654,-83.8088171,-98.1836216,-119.0376023,-96.56388,-111.8910474,-121.2810611,-117.2897652,-111.6946475,-72.749538,-73.4081575,-117.9536697,-93.3563405,-84.1246608,-93.3030063,-121.302728,-88.4153847,-93.4555093,-85.6680863,-96.5991593,-122.9006951,-120.0607176,-88.1084224],10,null,null,{"interactive":true,"className":"","stroke":true,"color":["black","green","green","blue","blue","blue","blue","red","red","red","red","red","red","red","red","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey"],"weight":5,"opacity":0.5,"fill":true,"fillColor":["black","green","green","blue","blue","blue","blue","red","red","red","red","red","red","red","red","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","pink","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","purple","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey","grey"],"fillOpacity":0.2},["Id: @I1@<br />Birth Place: Quincy, Illinois<br />","Id: @I2@<br />Birth Place: Weymouth Town, Massachusetts<br />","Id: @I3@<br />Birth Place: Chula Vista, California<br />","Id: @I4@<br />Birth Place: Apopka, Florida<br />","Id: @I5@<br />Birth Place: Lake Charles, Louisiana<br />","Id: @I6@<br />Birth Place: Rancho Cucamonga, California<br />","Id: @I7@<br />Birth Place: Woburn, Massachusetts<br />","Id: @I8@<br />Birth Place: Fargo, North Dakota<br />","Id: @I9@<br />Birth Place: Flower Mound, Texas<br />","Id: @I10@<br />Birth Place: Lincoln, California<br />","Id: @I11@<br />Birth Place: Huntersville, North Carolina<br />","Id: @I12@<br />Birth Place: Euclid, Ohio<br />","Id: @I13@<br />Birth Place: Pensacola, Florida<br />","Id: @I14@<br />Birth Place: Coral Springs, Florida<br />","Id: @I15@<br />Birth Place: Portland, Maine<br />","Id: @I16@<br />Birth Place: Largo, Florida<br />","Id: @I17@<br />Birth Place: Tucson, Arizona<br />","Id: @I18@<br />Birth Place: West Valley City, Utah<br />","Id: @I19@<br />Birth Place: Greenfield, Wisconsin<br />","Id: @I20@<br />Birth Place: Bellflower, California<br />","Id: @I21@<br />Birth Place: Savannah, Georgia<br />","Id: @I22@<br />Birth Place: Kalamazoo, Michigan<br />","Id: @I23@<br />Birth Place: Richardson, Texas<br />","Id: @I24@<br />Birth Place: Inglewood, California<br />","Id: @I25@<br />Birth Place: Fall River, Massachusetts<br />","Id: @I26@<br />Birth Place: Carpentersville, Illinois<br />","Id: @I27@<br />Birth Place: Georgetown, Texas<br />","Id: @I28@<br />Birth Place: Arlington, Texas<br />","Id: @I29@<br />Birth Place: Concord, New Hampshire<br />","Id: @I30@<br />Birth Place: Yakima, Washington<br />","Id: @I31@<br />Birth Place: Gilroy, California<br />","Id: @I32@<br />Birth Place: Citrus Heights, California<br />","Id: @I33@<br />Birth Place: Vista, California<br />","Id: @I34@<br />Birth Place: Encinitas, California<br />","Id: @I35@<br />Birth Place: Irving, Texas<br />","Id: @I36@<br />Birth Place: Galveston, Texas<br />","Id: @I37@<br />Birth Place: Decatur, Illinois<br />","Id: @I38@<br />Birth Place: Costa Mesa, California<br />","Id: @I39@<br />Birth Place: Orlando, Florida<br />","Id: @I40@<br />Birth Place: Portage, Michigan<br />","Id: @I41@<br />Birth Place: Peoria, Arizona<br />","Id: @I42@<br />Birth Place: Chico, California<br />","Id: @I43@<br />Birth Place: Surprise, Arizona<br />","Id: @I44@<br />Birth Place: Wheaton, Illinois<br />","Id: @I45@<br />Birth Place: Cedar Falls, Iowa<br />","Id: @I46@<br />Birth Place: Arcadia, California<br />","Id: @I47@<br />Birth Place: Florissant, Missouri<br />","Id: @I48@<br />Birth Place: Tulsa, Oklahoma<br />","Id: @I49@<br />Birth Place: Burnsville, Minnesota<br />","Id: @I50@<br />Birth Place: Riverton, Utah<br />","Id: @I51@<br />Birth Place: Palo Alto, California<br />","Id: @I52@<br />Birth Place: Muskegon, Michigan<br />","Id: @I53@<br />Birth Place: Wyoming, Michigan<br />","Id: @I54@<br />Birth Place: Nampa, Idaho<br />","Id: @I55@<br />Birth Place: Joplin, Missouri<br />","Id: @I56@<br />Birth Place: Garden Grove, California<br />","Id: @I57@<br />Birth Place: Dubuque, Iowa<br />","Id: @I58@<br />Birth Place: Reno, Nevada<br />","Id: @I59@<br />Birth Place: Largo, Florida<br />","Id: @I60@<br />Birth Place: Westminster, California<br />","Id: @I61@<br />Birth Place: Fall River, Massachusetts<br />","Id: @I62@<br />Birth Place: Broomfield, Colorado<br />","Id: @I63@<br />Birth Place: Hawthorne, California<br />","Id: @I64@<br />Birth Place: Marlborough, Massachusetts<br />","Id: @I65@<br />Birth Place: Yonkers, New York<br />","Id: @I66@<br />Birth Place: Binghamton, New York<br />","Id: @I67@<br />Birth Place: White Plains, New York<br />","Id: @I68@<br />Birth Place: Pearland, Texas<br />","Id: @I69@<br />Birth Place: Goose Creek, South Carolina<br />","Id: @I70@<br />Birth Place: Shawnee, Kansas<br />","Id: @I71@<br />Birth Place: Ocala, Florida<br />","Id: @I72@<br />Birth Place: Azusa, California<br />","Id: @I73@<br />Birth Place: Schaumburg, Illinois<br />","Id: @I74@<br />Birth Place: Warren, Ohio<br />","Id: @I75@<br />Birth Place: Wilson, North Carolina<br />","Id: @I76@<br />Birth Place: Apache Junction, Arizona<br />","Id: @I77@<br />Birth Place: Moorhead, Minnesota<br />","Id: @I78@<br />Birth Place: Fishers, Indiana<br />","Id: @I79@<br />Birth Place: Youngstown, Ohio<br />","Id: @I80@<br />Birth Place: Deerfield Beach, Florida<br />","Id: @I81@<br />Birth Place: Erie, Pennsylvania<br />","Id: @I82@<br />Birth Place: Mount Pleasant, South Carolina<br />","Id: @I83@<br />Birth Place: Orlando, Florida<br />","Id: @I84@<br />Birth Place: West Haven, Connecticut<br />","Id: @I85@<br />Birth Place: Charlotte, North Carolina<br />","Id: @I86@<br />Birth Place: Coral Springs, Florida<br />","Id: @I87@<br />Birth Place: Stamford, Connecticut<br />","Id: @I88@<br />Birth Place: Indio, California<br />","Id: @I89@<br />Birth Place: Gary, Indiana<br />","Id: @I90@<br />Birth Place: Hayward, California<br />","Id: @I91@<br />Birth Place: Dunwoody, Georgia<br />","Id: @I92@<br />Birth Place: Sherman, Texas<br />","Id: @I93@<br />Birth Place: Everett, Washington<br />","Id: @I94@<br />Birth Place: Tustin, California<br />","Id: @I95@<br />Birth Place: Woburn, Massachusetts<br />","Id: @I96@<br />Birth Place: Santa Barbara, California<br />","Id: @I97@<br />Birth Place: Everett, Washington<br />","Id: @I98@<br />Birth Place: Manhattan, Kansas<br />","Id: @I99@<br />Birth Place: Cuyahoga Falls, Ohio<br />","Id: @I100@<br />Birth Place: Irving, Texas<br />","Id: @I101@<br />Birth Place: North Las Vegas, Nevada<br />","Id: @I102@<br />Birth Place: Gaithersburg, Maryland<br />","Id: @I103@<br />Birth Place: Edinburg, Texas<br />","Id: @I104@<br />Birth Place: High Point, North Carolina<br />","Id: @I105@<br />Birth Place: Grapevine, Texas<br />","Id: @I106@<br />Birth Place: Springfield, Ohio<br />","Id: @I107@<br />Birth Place: Pharr, Texas<br />","Id: @I108@<br />Birth Place: Camarillo, California<br />","Id: @I109@<br />Birth Place: Rowlett, Texas<br />","Id: @I110@<br />Birth Place: Salt Lake City, Utah<br />","Id: @I111@<br />Birth Place: Citrus Heights, California<br />","Id: @I112@<br />Birth Place: San Bernardino, California<br />","Id: @I113@<br />Birth Place: Orem, Utah<br />","Id: @I114@<br />Birth Place: Westfield, Massachusetts<br />","Id: @I115@<br />Birth Place: Norwalk, Connecticut<br />","Id: @I116@<br />Birth Place: Fountain Valley, California<br />","Id: @I117@<br />Birth Place: Brooklyn Park, Minnesota<br />","Id: @I118@<br />Birth Place: Huber Heights, Ohio<br />","Id: @I119@<br />Birth Place: Coon Rapids, Minnesota<br />","Id: @I120@<br />Birth Place: Rancho Cordova, California<br />","Id: @I121@<br />Birth Place: Appleton, Wisconsin<br />","Id: @I122@<br />Birth Place: Plymouth, Minnesota<br />","Id: @I123@<br />Birth Place: Grand Rapids, Michigan<br />","Id: @I124@<br />Birth Place: Mesquite, Texas<br />","Id: @I125@<br />Birth Place: Olympia, Washington<br />","Id: @I126@<br />Birth Place: Madera, California<br />","Id: @I127@<br />Birth Place: New Berlin, Wisconsin<br />"],null,null,{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null,null]},{"method":"addLegend","args":[{"colors":["black","green","blue","red","pink","purple","grey"],"labels":["0","1","2","3","4","5","6"],"na_color":null,"na_label":"NA","opacity":0.5,"position":"topright","type":"unknown","title":null,"extra":null,"layerId":null,"className":"info legend","group":null}]}],"limits":{"lat":[26.1947962,47.9789848],"lng":[-122.9006951,-70.2553259]}},"evals":[],"jsHooks":[]}</script>
+<p>While the general migratory path was interesting, I wanted to focus on the descendants of someone specific, so I found the first member of my family to be born in America on my paternal side, and mapped out his descendants. The following .gif portrays the migratory path of that ancestor (who, incidentally, did fight in the Revolutionary War!) and his descendants.</p>
+<p><img src="../../static/img/generation.gif" /></p>
+<p>There are other questions that would be fun to explore, such as: Is there any intermingling between other trees in my line? Who had the most living descendants before they died? What is the average distance between where they were born and where they died?</p>
+<p>I hope that this parser can aid others in learning more about their family history, as well as make it easier for those who are just beginning to find the gaps in their heritage.</p>
+<p><br />
+<br />
+<br />
+<br />
+<br /></p>
+</div>
