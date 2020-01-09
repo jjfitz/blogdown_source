@@ -4,7 +4,7 @@ author: ~
 date: "2019-09-26"
 slug: how-far-does-the-apple-fall
 categories: []
-tags: []
+tags: [gedcom]
 keywords:
   - gedcom
 output: 
@@ -193,7 +193,8 @@ leaflet() %>%
 
 While the general migratory path was interesting, I wanted to focus on the descendants of someone specific, so I found the first member of my family to be born in America on my paternal side, and mapped out his descendants. The following .gif portrays the migratory path of that ancestor (who, incidentally, did fight in the Revolutionary War!) and his descendants.
 
-![](../../static/img/generation.gif)
+<!-- ![](../../static/img/generation.gif) -->
+![](https://raw.githubusercontent.com/jjfitz/blogdown_source/master/static/img/generation.gif)
 
 
 There are other questions that would be fun to explore, such as: Is there any intermingling between other trees in my line? Who had the most living descendants before they died? What is the average distance between where they were born and where they died?
