@@ -1,0 +1,206 @@
+---
+title: "What Skills Do Employers Look For In Data Scientists vs. Business Analysts"
+author: ~
+date: "2017-12-13"
+slug: data-scientists-vs-business-analysts
+categories: []
+tags: ["text-analysis"]
+keywords:
+  - text-analysis
+output: 
+  html_document:
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, fig.align='center',fig.width=12,fig.height=6, warning=FALSE, message = FALSE)
+library(rPython)
+library(tidyverse)
+library(magrittr)
+library(tm)
+library(SnowballC)
+library(wordcloud)
+library(stringr)
+library(USAboundaries)
+library(ggrepel)
+library(sf)
+library(geofacet)
+library(leaflet)
+library(ggpubr)
+```
+
+<!-- ## Job Search -->
+
+<!-- Link to Shiny: https://shiny.byui.edu/connect/#/apps/130/access -->
+
+In this analysis, I am going to be looking at the most commonly used words in job postings related to Data Science and Business Intelligence. I am wanting to see what skills are common between the two, and where they differ. While talking with others about what else they would like to see in this analysis is where those jobs are located, so I will make an attempt at doing that as well. This will help others know what skills are the most valuable in the industry at the moment, and where to go. 
+
+The job site that I will be scraping from is dice.com, because they seemed to be the most friendly towards scrapping their site. I made a python script that scrapes the first four pages of dice, which then scrapes those job links for their content, and then puts it into a csv file. One thing that I found while doing this is that the tm library helps a lot with cleaning up and organizing words in your data.
+
+First, we are going to look at the Data Science data. This is a word cloud showing the most used words in the job postings.
+
+Wordcloud
+```{r, fig.width=6,fig.height=5}
+### Data Science
+data_science <- read_csv(here::here("static", "data", "data_sci.csv"))
+
+dcontent <- VCorpus(VectorSource(data_science[2]))
+
+dcontent <- tm_map(dcontent, PlainTextDocument)
+
+dcontent <- tm_map(dcontent, removePunctuation)
+dcontent <- tm_map(dcontent, tolower)
+dcontent <- tm_map(dcontent, removeWords, c('the', 'this', stopwords('english')))
+dcontentc <- Corpus(VectorSource(dcontent))
+
+matrix_terms <- DocumentTermMatrix(dcontentc)
+
+wordcloud(dcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+There are a lot of words that we need to combine together so that we have a better context of what they are really looking for. At the moment, I am using 'x' to join together words that should go together. I would use a '-' or a '_' but one of the functions that I am using will still split apart these words when they see those. Take a look at the code to see what words I am joining together if you're curious.
+
+```{r, fig.width=6,fig.height=5}
+for (j in seq(dcontent[1][[1]])) {
+  dcontent[1][[1]][j] <- gsub("data scientist", "dataxscientist", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("data analysis", "dataxanalysis", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("machine learning", "machinexlearning", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("data mining", "dataxmining", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("data science", "dataxscience", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("project management", "projectxmanagement", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("predictive analytics", "predictivexanaylytics", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub("big data", "bigxdata", dcontent[1][[1]][j])
+  dcontent[1][[1]][j] <- gsub(" r ", " rlanguage ", dcontent[1][[1]][j])
+}
+
+dcontentc <- Corpus(VectorSource(dcontent))
+
+matrix_terms <- DocumentTermMatrix(dcontentc)
+
+freq <- colSums(as.matrix(matrix_terms))   
+freq <- sort(colSums(as.matrix(matrix_terms)), decreasing=TRUE) 
+
+dwf <- data.frame(word=names(freq), freq=freq)   
+
+ggplot(subset(dwf, freq>10), aes(x = reorder(word, -freq), y = freq)) +
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x=element_text(angle=45, hjust=1, size = 13)) +
+  labs(y = "Word Frequency", 
+       x = "Word", 
+       title = "Word Count in Job Descriptions for Data Science from Dice")
+
+wordcloud(dcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, "Dark2"))
+
+#ggarrange(wordc, histd, 
+#          labels = c("A", "B"),
+#          ncol = 2, nrow = 2)
+```
+
+From here we can start pulling out some useful information. We can see that Python, SQL, Hadoop, machine learning, and R take up the first 5 most commonly used words in these job post descriptions with data mining and SAS following later on.
+
+We are now going to go through the same process with Business Intelligence. Here is what we get.
+
+
+```{r}
+bcontent <- read_csv(here::here("static", "data", "intelligence.csv"))
+
+bcontent <- Corpus(VectorSource(bcontent[2]))
+
+bcontent <- tm_map(bcontent, PlainTextDocument)
+
+bcontent <- tm_map(bcontent, removePunctuation)
+bcontent <- tm_map(bcontent, removeWords, c('the', 'this', stopwords('english')))
+
+for (j in seq(bcontent[1][[1]])) {
+  bcontent[1][[1]][j] <- gsub("business intelligence", "businessxintelligence", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub("data analysis", "dataxanalysis", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub("machine learning", "machinexlearning", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub("data mining", "dataxmining", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub("predictive analytics", "predictivexanaylytics", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub("big data", "bigxdata", bcontent[1][[1]][j])
+  bcontent[1][[1]][j] <- gsub(" r ", " rlanguage ", bcontent[1][[1]][j])
+}
+bcontentc <- Corpus(VectorSource(bcontent))
+
+matrix_terms <- DocumentTermMatrix(bcontentc)
+
+freq <- colSums(as.matrix(matrix_terms))   
+freq <- sort(colSums(as.matrix(matrix_terms)), decreasing=TRUE) 
+
+bwf <- data.frame(word=names(freq), freq=freq)   
+
+ggplot(subset(bwf, freq>10), aes(x = reorder(word, -freq), y = freq)) +
+  geom_bar(stat = "identity") + 
+  theme(axis.text.x=element_text(angle=45, hjust=1, size = 13)) +
+  labs(y = "Word Frequency", 
+       x = "Word", 
+       title = "Word Count in Job Descriptions for Business Intelligence from Dice")
+
+wordcloud(bcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, "Dark2"))
+```
+
+It seems that with Business Intelligence, the top skills that they are looking for are SQL, Tableu, ETL, Oracle, Cognos, and Excel
+
+It seems that the only skillful similarity between the two is having a good knowledge of SQL. It seems that with Data Science they want to have people knowing a little bit more about programming, while Business Intelligence focuses on business software.
+
+##Locations
+
+We are now going to plot where these jobs are located.
+
+```{r}
+cities <- us_cities()  %>%
+  mutate(point = as.character(geometry)) %>%
+  st_set_geometry(NULL)
+
+cities$point <- str_remove_all(cities$point, "c\\(")
+cities$point <- str_remove_all(cities$point, "\\)")
+
+cities %<>%
+  separate(point, into = c("lon", "lat"), sep = ", ") %>%
+  mutate(lat = as.numeric(lat),
+         lon = as.numeric(lon))
+
+cities %<>%
+  filter(state_abbr != "AK", state_abbr != "HI") %>%
+  mutate(town = str_replace_all(name_2010, "\\s[a-z].+", ""), town_st = paste(town, state_abbr))
+
+data_sci <- read_csv(here::here("static", "data", "data_sci.csv")) %>%
+  mutate(name = Town, town_st = paste(name, State), job = rep("Data Science", length(name)))
+
+bus_intel <- read_csv(here::here("static", "data", "intelligence.csv"))%>%
+  mutate(name = Town, town_st = paste(name, State), job = rep("Business Intelligence", length(name)))
+
+sbdata <- rbind(data_sci, bus_intel)
+
+combined <- left_join(sbdata, cities, by = "town_st")
+
+data_cities <- combined %>%
+  filter(job == "Data Science")
+
+bus_cities <- combined %>%
+  filter(job == "Business Intelligence")
+
+icons <- awesomeIcons(icon = 'users',
+                      markerColor = ifelse(combined$job == 'Data Science','blue','red'),
+                      library = 'fa',
+                      iconColor = 'black')
+
+leaflet(combined) %>% addTiles() %>%
+  addAwesomeMarkers(~lon, ~lat, icon=icons, label=~as.character(job))
+# addCircles(~Origlon, ~Origlat, popup = ~paste0("<font size='2'>Title: ", `Occupation/Title`, "</font><br>", 
+#                                                  "<font size='2'>Dentrix Usage: ", DentrixUsaage, "</font><br>",
+#                                                  "<font size='2'>Organization: ", Organization, "</font><br>",
+#                                                  "<font size='2'>Referral Source: ", ReferralSource, "</font><br>",
+#                                                  '<font size="2">Search URL: <a href = "http://www.google.com/search?q=', paste0(Organization, " ", full_address), '" target = "_blank">', paste0(Organization, " ", full_address), "</a></font><br>"),
+#              popupOptions = popupOptions(maxWidth = 600)
+```
+
+From this plot, it seems that the Business Intelligence jobs are a little bit more spread out, while the Data Science jobs seem to be more on the east and west coast.
+
+There are many problems with this data. While scrapping and cleaning the data in Python, some of the data didn't transfer over correctly, which made it unusable to use in this analysis. I also didn't use a dataset that had spatial data for every town in the US, so while mapping it out there are some points that are missing from the map. Also, every instance of 'R' is not being accounted. One of the functions that I am using doesn't recognize single letters as words, and with trying to capture the 'R's I am only finding the ones with a space before and afer. Another problem is that I am only scraping dice.com, and not any other job search site. It is only the first four pages as well, so it's not quite gathering tons of data. Even with all of these problems though, we were able to find some insights in the data.
+
+
+

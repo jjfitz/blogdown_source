@@ -4,7 +4,7 @@ author: ~
 date: "2019-09-26"
 slug: how-far-does-the-apple-fall
 categories: []
-tags: [gedcom]
+tags: ["gedcom"]
 keywords:
   - gedcom
 output: 

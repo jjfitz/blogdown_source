@@ -1,0 +1,38 @@
+---
+title: "Building A Map For Henry Schein"
+author: ~
+date: "2019-01-20"
+slug: henry-schein
+categories: []
+tags: ["geocode"]
+keywords:
+  - geocode
+output: 
+  html_document:
+    code_folding: hide
+---
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>I had the great opportunity to do an internship with Henry Schein the previous summer and was able to build a connection with the lead Data Scientist there. They donated some of the data for this project to our school’s data science society, where I was appointed as team lead.</p>
+<p>The data has been changed from the original for privacy, but this is what we where able to provide for Henry Schein. They told us that they wanted to be able to see their customers on a map, and have statistical summaries for those customers, and compare them with other customers in the area. We were given free reign to put anything that seemed useful to provide about the customers.</p>
+<!-- I will go through the process of what we learned and what we had to do in order to get this map working.  -->
+<p>In order to see the map that we built for Henry Schein, click here:</p>
+<p><a href="https://jjfitz.shinyapps.io/hs_leaflet/">https://jjfitz.shinyapps.io/hs_leaflet/</a></p>
+</div>
+<div id="geocoding" class="section level2">
+<h2>Geocoding</h2>
+<p>The biggest part of this project was converting the customers’ addresses into latitude and longitude so that we could plot those onto the map. We at first didn’t know how big the dataset was going to be, so we where trying to find different methods of geocoding without having to pay to use the Google Maps API. We learned a lot of what Bing, OpenStreet Maps, and OpenSci had to offer as far as geocoding goes. When we got the data set, We tried the other methods we had researched, but they weren’t able to get all of the addresses correct. We saw that it was small enough that it wouldn’t go over the Google Maps Geocoding API limit, so we decided to use that instead.</p>
+<p>It is pretty straight forward to geocode after that. We first pasted the different parts of the address together:</p>
+<pre class="r"><code>data %&lt;&gt;%
+  mutate(full_address = paste0(ADDRESS, &quot;, &quot;, CITY, &quot;, &quot;, STATE, &quot;, &quot;, `ZIP CODE`))</code></pre>
+<p>And then we fed it into the API:</p>
+<pre class="r"><code>geo &lt;- geocode(location = data$full_address, output=&quot;latlon&quot;, source=&quot;google&quot;)
+
+data$lat &lt;- geo$lat
+data$lon &lt;- geo$lon</code></pre>
+<!-- We could now finally plot the customers on the map! We then had to learn a little bit more about shiny. We found a package that gave a little bit of style to shiny apps called shinydashboard. We started to learn how to make our plots reactive, and changing our graphs to where the map boundaries where. We built more tabs so that Henry Schein would be able to look at their customers that where within the app.  -->
+<p>We could now finally plot the customers on the map! This was a really fun project to be a part of. I learned more about geocoding and developed some skills with building shiny apps.</p>
+</div>

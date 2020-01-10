@@ -21,6 +21,33 @@
     </item>
     
     <item>
+      <title>journal</title>
+      <link>/tags/journal/</link>
+      <pubDate>Mon, 25 Feb 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/tags/journal/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>text-analysis</title>
+      <link>/tags/text-analysis/</link>
+      <pubDate>Mon, 25 Feb 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/tags/text-analysis/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>geocode</title>
+      <link>/tags/geocode/</link>
+      <pubDate>Sun, 20 Jan 2019 00:00:00 +0000</pubDate>
+      
+      <guid>/tags/geocode/</guid>
+      <description></description>
+    </item>
+    
+    <item>
       <title>plot</title>
       <link>/tags/plot/</link>
       <pubDate>Thu, 23 Jul 2015 21:13:14 -0500</pubDate>

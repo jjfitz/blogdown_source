@@ -1,0 +1,265 @@
+---
+title: "Journal Sentiments"
+author: ~
+date: "2019-02-25"
+slug: journal-sentiments
+categories: []
+tags: ["journal", "text-analysis"]
+keywords:
+  - journal
+output: 
+  html_document:
+    code_folding: hide
+---
+
+
+
+<div id="introduction" class="section level2">
+<h2>Introduction</h2>
+<p>I have a great time writing in my journal. It is fun to reread my journal from time to time and reminisce about old memories and see how I have changed. Since I have already been doing a lot with text-analysis, I started to think what would doing a simple sentiment analysis look on my journal?</p>
+</div>
+<div id="reading-in-my-journal" class="section level2">
+<h2>Reading in My Journal</h2>
+<p>It took a little bit to find the right way to read in my journal. At first, I was trying to use read_table() to read in my journal, but I saw that it was starting to truncate my journal entries after about 13,000 characters. So, I decided to use read_delim() in this way.</p>
+<pre class="r"><code>journal &lt;- read_delim(here::here(&quot;static&quot;, &quot;data&quot;, &quot;journal.txt&quot;), &#39;\n&#39;, &quot;\n\n&quot;, col_names = FALSE)</code></pre>
+<p>So, now I have my journal in R, but now I want to put it in a tidy format. I have always written my journal in this way:</p>
+<p>Month Day, Year <br />
+Dear Journal….</p>
+<p>With my format like that I was able to create this function to read in my journal and have dates be in one column and my journal entries in the other.</p>
+<pre class="r"><code>date_text &lt;- function(text) {
+  date = vector()
+  cont = NULL
+  dd &lt;- data_frame(Date = vector(mode = &quot;character&quot;), Text = vector(mode = &quot;character&quot;))
+  for (i in 1:length(text[1][[1]])) {
+    if(IsDateTime(text[1][[1]][[i]])) {
+      if (!is_empty(cont)) {
+        line.to.write &lt;- data_frame(dtemp, cont)
+        names(line.to.write) &lt;- c(&quot;Date&quot;, &quot;Text&quot;)
+        dd &lt;- rbind(dd, line.to.write)
+        cont &lt;- NULL
+      }
+      dtemp = mdy(text[1][[1]][[i]])
+    }
+
+      if (!IsDateTime(text[1][[1]][[i]])) {
+        ctemp &lt;- text[1][[1]][[i]]
+        cont &lt;- paste0(cont, &quot; &quot;, ctemp)
+      }
+  }
+  return(dd)
+}
+
+tidy_journal &lt;- date_text(journal)</code></pre>
+<p>In my function, you will notice that I am using the flipTime IsDateTime() function. Lubridate’s is.Date() function was a little to aggressive when it came to checking on whether or not a line was a date. Lubridate would take the first 3 numbers it would see and convert it to a date, which would cause mistakes in tidying up my journal. The IsDateTime function does a good job of making sure that the numbers look like a date. Now that we have the journal read in, let’s look at some quick summaries about my journal.</p>
+</div>
+<div id="quick-summaries" class="section level2">
+<h2>Quick Summaries</h2>
+<p>Here are my most used words with stop words removed.</p>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-3-1.png" width="672" /></p>
+<p>Here is a Word Cloud of my journal</p>
+<pre class="r"><code>wordcloud(jtotal$word, jtotal$count, random.order=FALSE, colors=brewer.pal(8, &quot;Dark2&quot;), max.words = 200)</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-4-1.png" width="672" /></p>
+<p>Total number of unique words (including stop words): 6244 <br />
+Total number of unique words (without stop words): 5120<br />
+Total number of journal entries: 619<br /></p>
+<p>So, about 1124 of the unique words that I use are meaningless when it comes to sentiment.</p>
+</div>
+<div id="sentiments" class="section level2">
+<h2>Sentiments</h2>
+<p>First, I am going to join up the different sentiment tables with my journal and see what words make up the highest sentiment scores.</p>
+<pre class="r"><code>afinn &lt;- get_sentiments(&quot;afinn&quot;)
+bing &lt;- get_sentiments(&quot;bing&quot;)
+nrc &lt;- get_sentiments(&quot;loughran&quot;)
+# bing and nrc both have a sentiment column. Just changing the name for nrc
+nrc %&lt;&gt;% mutate(emotion = sentiment) %&gt;% select(-sentiment)
+
+join_sentiments &lt;- function(data) {
+  data %&gt;%
+    left_join(afinn, by = &quot;word&quot;) %&gt;%
+    left_join(bing, by = &quot;word&quot;) %&gt;%
+    mutate(totalscore = count * value,
+           score_sent = if_else(value &gt; 0, &quot;positive&quot;, &quot;negative&quot;),
+           posneg = if_else(sentiment == &quot;positive&quot;, 1, -1))
+}
+
+jtotal &lt;- join_sentiments(jtotal)</code></pre>
+<p>Here, I have combined the AFINN and BING sentiments.</p>
+<pre class="r"><code># Afinn
+afinn_graph &lt;- jtotal %&gt;%
+  ungroup() %&gt;%
+  filter(!is.na(score_sent)) %&gt;%
+  group_by(score_sent) %&gt;%
+  slice(1:10) %&gt;%
+  ungroup() %&gt;%
+  mutate(word = reorder(word, count)) %&gt;%
+  ggplot(aes(word, count, fill = score_sent)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~score_sent, scales = &quot;free_y&quot;) +
+  labs(title = &quot;AFINN&quot;,
+       y = &quot;Contribution to sentiment&quot;,
+       x = NULL) +
+  coord_flip()
+
+# Bing
+bing_graph &lt;- jtotal %&gt;%
+  ungroup() %&gt;%
+  filter(!is.na(sentiment)) %&gt;%
+  # select(word, count, score_sent) %&gt;%
+  group_by(sentiment) %&gt;%
+  slice(1:10) %&gt;%
+  ungroup() %&gt;%
+  mutate(word = reorder(word, count)) %&gt;%
+  ggplot(aes(word, count, fill = sentiment)) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(~sentiment, scales = &quot;free_y&quot;) +
+  labs(title = &quot;BING&quot;,
+       y = &quot;Contribution to sentiment&quot;,
+       x = NULL) +
+  coord_flip()
+
+ggarrange(afinn_graph, bing_graph)</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-6-1.png" width="672" /></p>
+<p>It looks like that there are some words that seem similar in each. One thing that is interesting is that AFINN classifies funny as positive and BING classifies it as negative. When I add all of the scores for the sentiments, this is what I get:</p>
+<p>The total score I have for my AFINN: 5212<br />
+The total score I have for my BING: -92</p>
+<p>It seems that I know more negative words, but I use positive words more frequently!</p>
+<p>What does the word count look like as I have wrote in my journal?</p>
+<pre class="r"><code>jDates &lt;- jsplit %&gt;%
+  mutate(NMonth = month(Date),
+         Month = month(Date, label = TRUE, abbr = TRUE),
+         Year = year(Date),
+         Day = day(Date),
+         NWday = wday(Date),
+         Wday = wday(Date, label = TRUE, abbr = TRUE),
+         Yday = yday(Date))
+
+#Total # of words per day
+jDates %&gt;%
+  group_by(Year, Yday) %&gt;%
+  summarise(count = n()) %&gt;%
+  arrange(desc(count)) %&gt;%
+  ggplot(aes(Yday, count)) +
+  geom_line() +
+  facet_wrap(. ~ Year)</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-7-1.png" width="672" /></p>
+<p>This plot is interesting to me. When I first started writing in my journal in 2013, I was good at writing in it almost every single day. I am in the middle of transcribing my paper journal onto my computer, and that is why some of 2013 is cut off. I switched to writing my journal digitally in 2014. In 2015, I switched from writing everyday to once a week. It is also interesting to look at some of those days where I wrote a lot. Some where really good days / weeks, and some where bad. So, that brings me to another question. What do the sentiments look like from day to day? Does sentiment analysis do a good job of explaining of what I felt that day / week?</p>
+<pre class="r"><code>jsDates &lt;- jDates %&gt;%
+  filter(!is.na(Month)) %&gt;%
+  mutate(word = str_to_lower(word)) %&gt;%
+  group_by(Date, word, NMonth, Month, Year, Day, NWday, Wday, Yday) %&gt;%
+  anti_join(stop_words) %&gt;%
+  summarise(count = n()) %&gt;%
+  arrange(Date)</code></pre>
+<pre><code>## Joining, by = &quot;word&quot;</code></pre>
+<pre class="r"><code>jsDates &lt;- join_sentiments(jsDates)
+
+# Day to day by sentiments
+jsDates %&gt;%
+  filter(!is.na(totalscore)) %&gt;%
+  group_by(Yday, Year) %&gt;%
+  summarise(total = sum(totalscore)) %&gt;%
+  ggplot(aes(Yday, total, fill = (total &gt; 0))) +
+  geom_col(show.legend = FALSE) +
+  facet_wrap(. ~ Year) +
+  labs(y = &quot;Contribution to sentiment&quot;,
+       x = NULL)</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-8-1.png" width="672" /></p>
+<p>It seems that I mainly write about the positive things that go in my life. There are a few entries where it dips down into the negatives. Does this accurately show how I really felt these days? To take a quick look, I am going to look at the top positive and negative days and see how well it has done.</p>
+<pre class="r"><code># Best Days
+jsDates %&gt;%
+  filter(!is.na(totalscore)) %&gt;%
+  group_by(Date) %&gt;%
+  summarise(total = sum(totalscore)) %&gt;%
+  ungroup() %&gt;%
+  arrange(desc(total))</code></pre>
+<pre><code>## # A tibble: 602 x 2
+##    Date       total
+##    &lt;date&gt;     &lt;dbl&gt;
+##  1 2019-02-16    94
+##  2 2016-03-27    79
+##  3 2016-08-17    55
+##  4 2015-08-15    50
+##  5 2017-11-07    46
+##  6 2016-03-17    42
+##  7 2017-01-12    41
+##  8 2019-01-06    41
+##  9 2017-03-11    37
+## 10 2013-05-28    33
+## # … with 592 more rows</code></pre>
+<pre class="r"><code># Worst Days
+jsDates %&gt;%
+  filter(!is.na(totalscore)) %&gt;%
+  group_by(Date) %&gt;%
+  summarise(total = sum(totalscore)) %&gt;%
+  ungroup() %&gt;%
+  arrange(total)</code></pre>
+<pre><code>## # A tibble: 602 x 2
+##    Date       total
+##    &lt;date&gt;     &lt;dbl&gt;
+##  1 2014-10-03   -17
+##  2 2014-06-28   -13
+##  3 2014-07-01   -10
+##  4 2015-11-01   -10
+##  5 2014-08-29    -9
+##  6 2014-10-05    -9
+##  7 2014-04-29    -7
+##  8 2014-07-29    -7
+##  9 2017-05-30    -7
+## 10 2014-11-12    -6
+## # … with 592 more rows</code></pre>
+<p>Well, you are just going to have to take my word for it, but it did a great job of capturing some of my most positive entries, and it did all right with capturing some of my negative entries. They where bad, but I know of some other bad days I have wrote that should be ranked higher. Do I not write enough of my bad experiences? Should I go back to writing in my journal everyday to capture the feelings that I have better?</p>
+<pre class="r"><code>jemo &lt;- jDates %&gt;%
+  filter(!is.na(Month)) %&gt;%
+  mutate(word = str_to_lower(word)) %&gt;%
+  group_by(Date, word, NMonth, Month, Year, Day, NWday, Wday, Yday) %&gt;%
+  anti_join(stop_words) %&gt;%
+  arrange(Date) %&gt;%
+  ungroup() %&gt;%
+  left_join(afinn, by = &quot;word&quot;) %&gt;%
+  left_join(bing, by = &quot;word&quot;) %&gt;%
+  left_join(nrc, by = &quot;word&quot;) %&gt;%
+  filter(!is.na(emotion)) </code></pre>
+<pre><code>## Joining, by = &quot;word&quot;</code></pre>
+<pre class="r"><code># Year
+jemo %&gt;%
+  group_by(Year, emotion) %&gt;%
+  summarise(count = n()) %&gt;%
+  arrange(desc(count)) %&gt;%
+  ggplot(aes(reorder(emotion, desc(count)), count, fill = emotion)) +
+  geom_col() +
+  facet_wrap(. ~ Year) +
+  labs(y = &quot;Contribution to sentiment&quot;,
+       x = NULL) +
+  theme(axis.text.x=element_text(angle=45, hjust=1))</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-10-1.png" width="672" /></p>
+<p>This plot shows the amount of emotion that I wrote in my journal throughout the years. Positive and trust emotions seem to be a lot of what my journal consists of, along with anticipation and joy. It seems that I don’t write a lot about things that are sad, angry, or disgusting. This also supports that I like to write more about positive experiences.</p>
+<pre class="r"><code>my_bigrams &lt;- tidy_journal %&gt;%
+  unnest_tokens(bigram, Text, token = &quot;ngrams&quot;, n = 2)
+
+bigrams_separated &lt;- my_bigrams %&gt;%
+  separate(bigram, c(&quot;word1&quot;, &quot;word2&quot;), sep = &quot; &quot;)
+
+bigrams_filtered &lt;- bigrams_separated %&gt;%
+  filter(!word1 %in% stop_words$word) %&gt;%
+  filter(!word2 %in% stop_words$word)
+
+# new bigram counts:
+bigram_counts &lt;- bigrams_filtered %&gt;% 
+  count(word1, word2, sort = TRUE)
+
+bigram_graph &lt;- bigram_counts %&gt;%
+  filter(n &gt; 5) %&gt;%
+  graph_from_data_frame()
+
+a &lt;- grid::arrow(type = &quot;closed&quot;, length = unit(.15, &quot;inches&quot;))
+
+ggraph(bigram_graph, layout = &quot;fr&quot;) +
+  geom_edge_link(aes(edge_alpha = n), show.legend = FALSE,
+                 arrow = a, end_cap = circle(.07, &#39;inches&#39;)) +
+  geom_node_point(color = &quot;lightblue&quot;, size = 5) +
+  geom_node_text(aes(label = name), vjust = 1, hjust = 1) +
+  theme_void()</code></pre>
+<p><img src="/post/Journal_Sentiments_files/figure-html/unnamed-chunk-11-1.png" width="672" /></p>
+<p>This graph is a lot of fun. It shows the association between the words, the strength of each association, and the direction.</p>
+<p>It has been fun to look at my journal in this way. It was interesting to see the how often I write in my journal and the emotions and feelings that I put into it in a summarized form. Either my life has been really positive so far, or I am not doing a good job with captuing my negative experiences in my journal. It will also be fun to come back to this analysis as the years go on and see how it will change.</p>
+</div>

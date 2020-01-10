@@ -1,0 +1,178 @@
+---
+title: "What Skills Do Employers Look For In Data Scientists vs. Business Analysts"
+author: ~
+date: "2017-12-13"
+slug: data-scientists-vs-business-analysts
+categories: []
+tags: ["text-analysis"]
+keywords:
+  - text-analysis
+output: 
+  html_document:
+    code_folding: hide
+---
+
+<script src="/rmarkdown-libs/htmlwidgets/htmlwidgets.js"></script>
+<script src="/rmarkdown-libs/jquery/jquery.min.js"></script>
+<link href="/rmarkdown-libs/leaflet/leaflet.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/leaflet/leaflet.js"></script>
+<link href="/rmarkdown-libs/leafletfix/leafletfix.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/Proj4Leaflet/proj4-compressed.js"></script>
+<script src="/rmarkdown-libs/Proj4Leaflet/proj4leaflet.js"></script>
+<link href="/rmarkdown-libs/rstudio_leaflet/rstudio_leaflet.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/leaflet-binding/leaflet.js"></script>
+<link href="/rmarkdown-libs/leaflet-awesomemarkers/leaflet.awesome-markers.css" rel="stylesheet" />
+<script src="/rmarkdown-libs/leaflet-awesomemarkers/leaflet.awesome-markers.min.js"></script>
+<link href="/rmarkdown-libs/fontawesome/font-awesome.min.css" rel="stylesheet" />
+
+
+<!-- ## Job Search -->
+<!-- Link to Shiny: https://shiny.byui.edu/connect/#/apps/130/access -->
+<p>In this analysis, I am going to be looking at the most commonly used words in job postings related to Data Science and Business Intelligence. I am wanting to see what skills are common between the two, and where they differ. While talking with others about what else they would like to see in this analysis is where those jobs are located, so I will make an attempt at doing that as well. This will help others know what skills are the most valuable in the industry at the moment, and where to go.</p>
+<p>The job site that I will be scraping from is dice.com, because they seemed to be the most friendly towards scrapping their site. I made a python script that scrapes the first four pages of dice, which then scrapes those job links for their content, and then puts it into a csv file. One thing that I found while doing this is that the tm library helps a lot with cleaning up and organizing words in your data.</p>
+<p>First, we are going to look at the Data Science data. This is a word cloud showing the most used words in the job postings.</p>
+<p>Wordcloud</p>
+<pre class="r"><code>### Data Science
+data_science &lt;- read_csv(here::here(&quot;static&quot;, &quot;data&quot;, &quot;data_sci.csv&quot;))
+
+dcontent &lt;- VCorpus(VectorSource(data_science[2]))
+
+dcontent &lt;- tm_map(dcontent, PlainTextDocument)
+
+dcontent &lt;- tm_map(dcontent, removePunctuation)
+dcontent &lt;- tm_map(dcontent, tolower)
+dcontent &lt;- tm_map(dcontent, removeWords, c(&#39;the&#39;, &#39;this&#39;, stopwords(&#39;english&#39;)))
+dcontentc &lt;- Corpus(VectorSource(dcontent))
+
+matrix_terms &lt;- DocumentTermMatrix(dcontentc)
+
+wordcloud(dcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, &quot;Dark2&quot;))</code></pre>
+<p><img src="/post/job_search_files/figure-html/unnamed-chunk-1-1.png" width="576" style="display: block; margin: auto;" /></p>
+<p>There are a lot of words that we need to combine together so that we have a better context of what they are really looking for. At the moment, I am using ‘x’ to join together words that should go together. I would use a ‘-’ or a ’_’ but one of the functions that I am using will still split apart these words when they see those. Take a look at the code to see what words I am joining together if you’re curious.</p>
+<pre class="r"><code>for (j in seq(dcontent[1][[1]])) {
+  dcontent[1][[1]][j] &lt;- gsub(&quot;data scientist&quot;, &quot;dataxscientist&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;data analysis&quot;, &quot;dataxanalysis&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;machine learning&quot;, &quot;machinexlearning&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;data mining&quot;, &quot;dataxmining&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;data science&quot;, &quot;dataxscience&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;project management&quot;, &quot;projectxmanagement&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;predictive analytics&quot;, &quot;predictivexanaylytics&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot;big data&quot;, &quot;bigxdata&quot;, dcontent[1][[1]][j])
+  dcontent[1][[1]][j] &lt;- gsub(&quot; r &quot;, &quot; rlanguage &quot;, dcontent[1][[1]][j])
+}
+
+dcontentc &lt;- Corpus(VectorSource(dcontent))
+
+matrix_terms &lt;- DocumentTermMatrix(dcontentc)
+
+freq &lt;- colSums(as.matrix(matrix_terms))   
+freq &lt;- sort(colSums(as.matrix(matrix_terms)), decreasing=TRUE) 
+
+dwf &lt;- data.frame(word=names(freq), freq=freq)   
+
+ggplot(subset(dwf, freq&gt;10), aes(x = reorder(word, -freq), y = freq)) +
+  geom_bar(stat = &quot;identity&quot;) + 
+  theme(axis.text.x=element_text(angle=45, hjust=1, size = 13)) +
+  labs(y = &quot;Word Frequency&quot;, 
+       x = &quot;Word&quot;, 
+       title = &quot;Word Count in Job Descriptions for Data Science from Dice&quot;)</code></pre>
+<p><img src="/post/job_search_files/figure-html/unnamed-chunk-2-1.png" width="576" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>wordcloud(dcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, &quot;Dark2&quot;))</code></pre>
+<p><img src="/post/job_search_files/figure-html/unnamed-chunk-2-2.png" width="576" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>#ggarrange(wordc, histd, 
+#          labels = c(&quot;A&quot;, &quot;B&quot;),
+#          ncol = 2, nrow = 2)</code></pre>
+<p>From here we can start pulling out some useful information. We can see that Python, SQL, Hadoop, machine learning, and R take up the first 5 most commonly used words in these job post descriptions with data mining and SAS following later on.</p>
+<p>We are now going to go through the same process with Business Intelligence. Here is what we get.</p>
+<pre class="r"><code>bcontent &lt;- read_csv(here::here(&quot;static&quot;, &quot;data&quot;, &quot;intelligence.csv&quot;))
+
+bcontent &lt;- Corpus(VectorSource(bcontent[2]))
+
+bcontent &lt;- tm_map(bcontent, PlainTextDocument)
+
+bcontent &lt;- tm_map(bcontent, removePunctuation)
+bcontent &lt;- tm_map(bcontent, removeWords, c(&#39;the&#39;, &#39;this&#39;, stopwords(&#39;english&#39;)))
+
+for (j in seq(bcontent[1][[1]])) {
+  bcontent[1][[1]][j] &lt;- gsub(&quot;business intelligence&quot;, &quot;businessxintelligence&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot;data analysis&quot;, &quot;dataxanalysis&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot;machine learning&quot;, &quot;machinexlearning&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot;data mining&quot;, &quot;dataxmining&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot;predictive analytics&quot;, &quot;predictivexanaylytics&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot;big data&quot;, &quot;bigxdata&quot;, bcontent[1][[1]][j])
+  bcontent[1][[1]][j] &lt;- gsub(&quot; r &quot;, &quot; rlanguage &quot;, bcontent[1][[1]][j])
+}
+bcontentc &lt;- Corpus(VectorSource(bcontent))
+
+matrix_terms &lt;- DocumentTermMatrix(bcontentc)
+
+freq &lt;- colSums(as.matrix(matrix_terms))   
+freq &lt;- sort(colSums(as.matrix(matrix_terms)), decreasing=TRUE) 
+
+bwf &lt;- data.frame(word=names(freq), freq=freq)   
+
+ggplot(subset(bwf, freq&gt;10), aes(x = reorder(word, -freq), y = freq)) +
+  geom_bar(stat = &quot;identity&quot;) + 
+  theme(axis.text.x=element_text(angle=45, hjust=1, size = 13)) +
+  labs(y = &quot;Word Frequency&quot;, 
+       x = &quot;Word&quot;, 
+       title = &quot;Word Count in Job Descriptions for Business Intelligence from Dice&quot;)</code></pre>
+<p><img src="/post/job_search_files/figure-html/unnamed-chunk-3-1.png" width="1152" style="display: block; margin: auto;" /></p>
+<pre class="r"><code>wordcloud(bcontentc, max.words = 50, random.order = FALSE, 
+          colors=brewer.pal(8, &quot;Dark2&quot;))</code></pre>
+<p><img src="/post/job_search_files/figure-html/unnamed-chunk-3-2.png" width="1152" style="display: block; margin: auto;" /></p>
+<p>It seems that with Business Intelligence, the top skills that they are looking for are SQL, Tableu, ETL, Oracle, Cognos, and Excel</p>
+<p>It seems that the only skillful similarity between the two is having a good knowledge of SQL. It seems that with Data Science they want to have people knowing a little bit more about programming, while Business Intelligence focuses on business software.</p>
+<p>##Locations</p>
+<p>We are now going to plot where these jobs are located.</p>
+<pre class="r"><code>cities &lt;- us_cities()  %&gt;%
+  mutate(point = as.character(geometry)) %&gt;%
+  st_set_geometry(NULL)
+
+cities$point &lt;- str_remove_all(cities$point, &quot;c\\(&quot;)
+cities$point &lt;- str_remove_all(cities$point, &quot;\\)&quot;)
+
+cities %&lt;&gt;%
+  separate(point, into = c(&quot;lon&quot;, &quot;lat&quot;), sep = &quot;, &quot;) %&gt;%
+  mutate(lat = as.numeric(lat),
+         lon = as.numeric(lon))
+
+cities %&lt;&gt;%
+  filter(state_abbr != &quot;AK&quot;, state_abbr != &quot;HI&quot;) %&gt;%
+  mutate(town = str_replace_all(name_2010, &quot;\\s[a-z].+&quot;, &quot;&quot;), town_st = paste(town, state_abbr))
+
+data_sci &lt;- read_csv(here::here(&quot;static&quot;, &quot;data&quot;, &quot;data_sci.csv&quot;)) %&gt;%
+  mutate(name = Town, town_st = paste(name, State), job = rep(&quot;Data Science&quot;, length(name)))
+
+bus_intel &lt;- read_csv(here::here(&quot;static&quot;, &quot;data&quot;, &quot;intelligence.csv&quot;))%&gt;%
+  mutate(name = Town, town_st = paste(name, State), job = rep(&quot;Business Intelligence&quot;, length(name)))
+
+sbdata &lt;- rbind(data_sci, bus_intel)
+
+combined &lt;- left_join(sbdata, cities, by = &quot;town_st&quot;)
+
+data_cities &lt;- combined %&gt;%
+  filter(job == &quot;Data Science&quot;)
+
+bus_cities &lt;- combined %&gt;%
+  filter(job == &quot;Business Intelligence&quot;)
+
+icons &lt;- awesomeIcons(icon = &#39;users&#39;,
+                      markerColor = ifelse(combined$job == &#39;Data Science&#39;,&#39;blue&#39;,&#39;red&#39;),
+                      library = &#39;fa&#39;,
+                      iconColor = &#39;black&#39;)
+
+leaflet(combined) %&gt;% addTiles() %&gt;%
+  addAwesomeMarkers(~lon, ~lat, icon=icons, label=~as.character(job))</code></pre>
+<div id="htmlwidget-1" style="width:1152px;height:576px;" class="leaflet html-widget"></div>
+<script type="application/json" data-for="htmlwidget-1">{"x":{"options":{"crs":{"crsClass":"L.CRS.EPSG3857","code":null,"proj4def":null,"projectedBounds":null,"options":{}}},"calls":[{"method":"addTiles","args":["//{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",null,null,{"minZoom":0,"maxZoom":18,"tileSize":256,"subdomains":"abc","errorTileUrl":"","tms":false,"noWrap":false,"zoomOffset":0,"zoomReverse":false,"opacity":1,"zIndex":1,"detectRetina":false,"attribution":"&copy; <a href=\"http://openstreetmap.org\">OpenStreetMap<\/a> contributors, <a href=\"http://creativecommons.org/licenses/by-sa/2.0/\">CC-BY-SA<\/a>"}]},{"method":"addAwesomeMarkers","args":[[38.9818981,null,40.7785197,40.4757767,33.7629088,null,null,null,40.6642738,37.3193981,null,null,40.4397525,null,37.5152736,41.8375511,40.7785197,43.7079473,40.7785197,null,null,42.3759674,null,null,36.9230149,33.5274441,42.3830375,34.0193936,38.0376579,null,null,42.601045,33.7308498,33.7629088,null,40.6642738,null,null,42.33196,null,41.8375511,33.7629088,null,45.479567,null,40.6642738,null,40.6642738,47.6204993,null,39.7618487,39.7618487,33.9171449,null,40.6642738,40.7452508,39.7618487,37.5152736,33.736478,33.6783986,null,42.33196,37.780023,33.7629088,null,37.364613,42.33196,null,40.6642738,37.780023,37.780023,40.0093755,47.6204993,40.6642738,41.0798566,40.6154442,41.0798566,44.8155,40.6642738,null,30.3071816,43.0633484,39.3002135,null,34.1813929,37.8667016,38.6577715,37.3997819,39.7352263,null,null,30.5237164,45.5369506,36.2277116,37.780023,40.4757767,40.6642738,30.3071816,32.794176,42.5266791,32.8152995,34.0193936,43.2984927,null,42.3830375,42.5266791,null,39.7766644,40.8089574,33.8184769,33.5721625,39.0957581,32.8152995,null,35.9809638,39.125212,41.4495289,32.8152995,38.9041485,33.7629088,41.1061185,40.1563851,37.780023,41.7660453,40.7819578,26.141305,33.8048434,38.9704111,32.8152995,32.8152995,32.8152995,32.8152995,38.7169113,39.7618487,43.0878055,30.3370193,33.7629088,29.7804724,null,40.6642738,41.4761011,39.7618487,36.7826736,40.6642738,33.5721625,33.5721625,47.2521991,39.7618487,43.2131185,41.5532694,43.3206701,32.794176,35.1035431,43.0878055,41.9766165,32.9877018,38.6577715,26.3728553,33.5721625,null,null,28.4158857,37.4366112,43.0878055,26.848788,38.6577715,null,29.7804724,null,42.1660688,41.3800115,33.6783986,35.8302035,33.6783986,33.8184769,33.6783986,25.775163],[-77.0831555,null,-111.9314142,-88.9699117,-84.4226745,null,null,null,-73.9385004,-122.0449562,null,null,-79.9765919,null,-122.2136716,-87.6818441,-111.9314142,-70.3526138,-111.9314142,null,null,-71.1182745,null,null,-76.2446413,-86.799047,-83.1022365,-118.4108248,-78.4853806,null,null,-89.6438804,-117.8107348,-84.4226745,null,-73.9385004,null,null,-71.0201725,null,-87.6818441,-84.4226745,null,-122.8149703,null,-73.9385004,null,-73.9385004,-122.3508761,null,-104.8806251,-104.8806251,-118.401554,null,-73.9385004,-74.0279257,-104.8806251,-122.2136716,-117.8825931,-117.7712541,null,-71.0201725,-122.419338,-84.4226745,null,-121.9679336,-71.0201725,null,-73.9385004,-122.419338,-122.419338,-75.1333459,-122.3508761,-73.9385004,-73.5460279,-74.4157753,-73.5460279,-93.1624,-73.9385004,null,-97.7559964,-87.9666952,-76.6105159,null,-118.2458301,-122.2990661,-90.5809501,-122.1427757,-75.5292892,null,null,-97.6673626,-122.649971,-115.2640448,-122.419338,-88.9699117,-73.9385004,-97.7559964,-96.7655033,-87.8883023,-117.134993,-118.4108248,-70.9770055,null,-83.1022365,-87.8883023,null,-86.1459355,-96.6803544,-118.0383073,-112.0879662,-76.8622679,-117.134993,null,-78.9056471,-94.5511362,-81.9301603,-117.134993,-77.0170942,-84.4226745,-81.4255955,-75.2215317,-122.419338,-72.6833394,-74.0676489,-80.143896,-117.8248761,-77.3871077,-117.134993,-117.134993,-117.134993,-117.134993,-90.4718145,-104.8806251,-89.4301208,-81.6613021,-84.4226745,-95.3863425,null,-73.9385004,-81.5491997,-104.8806251,-119.794492,-73.9385004,-112.0879662,-112.0879662,-122.4598318,-104.8806251,-88.0136958,-93.7597583,-87.9476268,-96.7655033,-89.9784984,-89.4301208,-88.0187752,-117.0218426,-90.5809501,-80.1062924,-112.0879662,null,null,-81.2987497,-121.8913217,-89.4301208,-80.1671239,-90.5809501,null,-95.3863425,null,-87.8524665,-81.6333146,-117.7712541,-78.6414394,-117.7712541,-118.0383073,-117.7712541,-80.2086152],{"icon":"users","markerColor":["blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","blue","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red","red"],"iconColor":"black","spin":false,"squareMarker":false,"iconRotate":0,"font":"monospace","prefix":"fa"},null,null,{"interactive":true,"draggable":false,"keyboard":true,"title":"","alt":"","zIndexOffset":0,"opacity":1,"riseOnHover":false,"riseOffset":250},null,null,null,null,["Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Data Science","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence","Business Intelligence"],{"interactive":false,"permanent":false,"direction":"auto","opacity":1,"offset":[0,0],"textsize":"10px","textOnly":false,"className":"","sticky":true},null]}],"limits":{"lat":[25.775163,47.6204993],"lng":[-122.8149703,-70.3526138]}},"evals":[],"jsHooks":[]}</script>
+<pre class="r"><code># addCircles(~Origlon, ~Origlat, popup = ~paste0(&quot;&lt;font size=&#39;2&#39;&gt;Title: &quot;, `Occupation/Title`, &quot;&lt;/font&gt;&lt;br&gt;&quot;, 
+#                                                  &quot;&lt;font size=&#39;2&#39;&gt;Dentrix Usage: &quot;, DentrixUsaage, &quot;&lt;/font&gt;&lt;br&gt;&quot;,
+#                                                  &quot;&lt;font size=&#39;2&#39;&gt;Organization: &quot;, Organization, &quot;&lt;/font&gt;&lt;br&gt;&quot;,
+#                                                  &quot;&lt;font size=&#39;2&#39;&gt;Referral Source: &quot;, ReferralSource, &quot;&lt;/font&gt;&lt;br&gt;&quot;,
+#                                                  &#39;&lt;font size=&quot;2&quot;&gt;Search URL: &lt;a href = &quot;http://www.google.com/search?q=&#39;, paste0(Organization, &quot; &quot;, full_address), &#39;&quot; target = &quot;_blank&quot;&gt;&#39;, paste0(Organization, &quot; &quot;, full_address), &quot;&lt;/a&gt;&lt;/font&gt;&lt;br&gt;&quot;),
+#              popupOptions = popupOptions(maxWidth = 600)</code></pre>
+<p>From this plot, it seems that the Business Intelligence jobs are a little bit more spread out, while the Data Science jobs seem to be more on the east and west coast.</p>
+<p>There are many problems with this data. While scrapping and cleaning the data in Python, some of the data didn’t transfer over correctly, which made it unusable to use in this analysis. I also didn’t use a dataset that had spatial data for every town in the US, so while mapping it out there are some points that are missing from the map. Also, every instance of ‘R’ is not being accounted. One of the functions that I am using doesn’t recognize single letters as words, and with trying to capture the ’R’s I am only finding the ones with a space before and afer. Another problem is that I am only scraping dice.com, and not any other job search site. It is only the first four pages as well, so it’s not quite gathering tons of data. Even with all of these problems though, we were able to find some insights in the data.</p>
